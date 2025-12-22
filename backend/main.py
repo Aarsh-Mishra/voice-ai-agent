@@ -3,6 +3,7 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from database import test_db_connection
+from agents import router as agents_router
 from auth import router as auth_router
 from services import process_voice_pipeline # Import the new service
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 # Register Routes
 app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(agents_router, prefix="/agents", tags=["Agents"])
 
 @app.on_event("startup")
 async def startup_db_client():
