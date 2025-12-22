@@ -1,17 +1,18 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard"; // <--- Import the real file
+import Dashboard from "./pages/Dashboard";
+import ChatInterface from "./pages/ChatInterface"; // <--- Import this
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
-        {/* Use the Real Dashboard Component here */}
         <Route path="/dashboard" element={<Dashboard />} />
         
-        {/* Default redirect to login */}
+        {/* New Route for Chatting */}
+        <Route path="/chat/:agentId" element={<ChatInterface />} />
+        
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

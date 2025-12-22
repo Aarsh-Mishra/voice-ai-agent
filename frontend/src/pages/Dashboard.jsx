@@ -126,11 +126,11 @@ const Dashboard = () => {
 
             <div className="mt-4 flex gap-2">
               <button 
-                onClick={() => handleDeleteAgent(agent.id)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-red-600 transition"
-              >
-                <Trash2 size={16} /> Delete
-              </button>
+                    onClick={() => navigate(`/chat/${agent.id}`)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition shadow-sm"
+                >
+                    <Mic size={16} /> Chat
+                </button>
               {/* We will add the Chat button in the final step */}
             </div>
           </div>
