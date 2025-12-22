@@ -1,12 +1,19 @@
 # backend/services.py
 import os
-import httpx
-from deepgram import DeepgramClient, PrerecordedOptions, SpeakOptions
+from deepgram import DeepgramClient
 from groq import Groq
+from dotenv import load_dotenv
 
-# Initialize Clients
-# Ensure DEEPGRAM_API_KEY and GROQ_API_KEY are in your .env file
-deepgram = DeepgramClient(os.getenv("DEEPGRAM_API_KEY"))
+load_dotenv()
+
+# --- INITIALIZATION ---
+deepgram_key = os.getenv("DEEPGRAM_API_KEY")
+if not deepgram_key:
+    print("❌ ERROR: DEEPGRAM_API_KEY is missing in .env")
+
+# FIX: Removed the failing DeepgramClientOptions.
+# We will rely on the concise system prompt to ensure audio generates quickly.
+deepgram = DeepgramClient(api_key=deepgram_key)
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 async def process_voice_pipeline(audio_file: bytes):
@@ -18,13 +25,23 @@ async def process_voice_pipeline(audio_file: bytes):
     
     # --- 1. SPEECH TO TEXT (STT) ---
     try:
-        source = {"buffer": audio_file, "mimetype": "audio/mp3"}
-        options = PrerecordedOptions(
-            model="nova-2",
-            smart_format=True
-        )
-        stt_response = deepgram.listen.prerecorded.v("1").transcribe_file(source, options)
-        user_text = stt_response["results"]["channels"][0]["alternatives"][0]["transcript"]
+        # Prepare Source
+        payload = {
+            "buffer": audio_file,
+        }
+        
+        # Options
+        options = {
+            "model": "nova-2",
+            "smart_format": True,
+            "mimetype": "audio/mp3" 
+        }
+        
+        # STT Call
+        response = deepgram.listen.prerecorded.v("1").transcribe_file(payload, options)
+        
+        # Parse Response
+        user_text = response["results"]["channels"][0]["alternatives"][0]["transcript"]
         
         if not user_text:
             return {"error": "No speech detected"}
@@ -33,7 +50,7 @@ async def process_voice_pipeline(audio_file: bytes):
 
     except Exception as e:
         print(f"❌ STT Error: {e}")
-        return {"error": "Failed to transcribe audio"}
+        return {"error": f"Failed to transcribe audio: {str(e)}"}
 
     # --- 2. LLM PROCESSING (Groq) ---
     try:
@@ -41,34 +58,35 @@ async def process_voice_pipeline(audio_file: bytes):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful voice assistant. Keep answers concise and conversational."
+                    # KEY FIX: Instructions to be concise prevent TTS timeouts
+                    "content": "You are a helpful voice assistant. Keep answers very concise (max 2 sentences) and conversational."
                 },
                 {
                     "role": "user",
                     "content": user_text,
                 }
             ],
-            model="llama3-8b-8192",
+            model="llama-3.1-8b-instant",
         )
         ai_text = chat_completion.choices[0].message.content
         print(f"🤖 AI Response: {ai_text}")
 
     except Exception as e:
         print(f"❌ LLM Error: {e}")
-        return {"error": "Failed to generate AI response"}
+        return {"error": f"Failed to generate AI response: {str(e)}"}
 
     # --- 3. TEXT TO SPEECH (TTS) ---
     try:
-        options = SpeakOptions(
-            model="aura-asteria-en", # or aura-helios-en
-        )
+        options = {
+            "model": "aura-asteria-en"
+        }
         
-        # Deepgram TTS saves the file locally or returns bytes. 
-        # For an API, we want bytes.
         filename = "temp_output.mp3"
+        
+        # TTS Call
         deepgram.speak.v("1").save(filename, {"text": ai_text}, options)
         
-        # Read the file back into bytes to return it
+        # Read the file back into bytes
         with open(filename, "rb") as f:
             audio_data = f.read()
         
@@ -84,4 +102,4 @@ async def process_voice_pipeline(audio_file: bytes):
 
     except Exception as e:
         print(f"❌ TTS Error: {e}")
-        return {"error": "Failed to synthesize speech"}
+        return {"error": f"Failed to synthesize speech: {str(e)}"}
