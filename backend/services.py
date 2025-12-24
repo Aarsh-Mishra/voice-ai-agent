@@ -5,6 +5,8 @@ import time
 from deepgram import DeepgramClient
 from groq import Groq
 from dotenv import load_dotenv
+from database import db
+from bson import ObjectId
 
 load_dotenv()
 
@@ -16,14 +18,34 @@ if not deepgram_key:
 deepgram = DeepgramClient(api_key=deepgram_key)
 groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-async def process_voice_pipeline(audio_file: bytes):
+async def process_voice_pipeline(audio_file: bytes, agent_id: str):
     """
-    1. STT: Convert Audio to Text (Deepgram)
-    2. LLM: Generate Response (Groq)
-    3. TTS: Convert Text to Audio (Deepgram)
+    1. Fetch Agent Config (System Prompt, Providers)
+    2. STT: Convert Audio to Text
+    3. LLM: Generate Response (Using Agent's Prompt)
+    4. TTS: Convert Text to Audio
     """
     unique_id = uuid.uuid4().hex
     temp_filename = f"temp_output_{unique_id}.mp3"
+
+    # --- 0. FETCH AGENT CONFIG ---
+    try:
+        if not agent_id or not ObjectId.is_valid(agent_id):
+            raise Exception("Invalid Agent ID provided")
+            
+        agent = await db.agents.find_one({"_id": ObjectId(agent_id)})
+        if not agent:
+            raise Exception("Agent not found")
+            
+        # Get the system prompt from the DB (or use default)
+        system_prompt = agent.get("system_prompt", "You are a helpful assistant.")
+        voice_model = agent.get("voice_model", "aura-asteria-en")
+        
+        print(f"🔹 Using Agent: {agent.get('name')} | Voice: {voice_model}")
+
+    except Exception as e:
+        print(f"❌ Database Error: {e}")
+        return {"error": str(e)}
     
     # --- 1. SPEECH TO TEXT (STT) ---
     try:
@@ -52,7 +74,7 @@ async def process_voice_pipeline(audio_file: bytes):
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a helpful voice assistant. Keep answers very concise (max 1-2 sentences) and conversational."
+                    "content": system_prompt  # <--- DYNAMIC PROMPT USED HERE
                 },
                 {
                     "role": "user",
@@ -68,23 +90,12 @@ async def process_voice_pipeline(audio_file: bytes):
         print(f"❌ LLM Error: {e}")
         return {"error": f"Failed to generate AI response: {str(e)}"}
 
-    # --- 3. TEXT TO SPEECH (TTS) - WITH RETRY LOGIC ---
+    # --- 3. TEXT TO SPEECH (TTS) ---
     try:
-        options = { "model": "aura-asteria-en" }
+        options = { "model": voice_model }
         
-        # Retry up to 3 times if SSL/Network fails
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                deepgram.speak.v("1").save(temp_filename, {"text": ai_text}, options)
-                break # Success! Exit loop
-            except Exception as e:
-                print(f"⚠️ TTS Attempt {attempt+1} failed: {e}")
-                if attempt == max_retries - 1:
-                    raise e # Give up after 3 tries
-                time.sleep(1) # Wait 1 second before retrying
+        deepgram.speak.v("1").save(temp_filename, {"text": ai_text}, options)
         
-        # Read the file back
         with open(temp_filename, "rb") as f:
             audio_data = f.read()
             
@@ -99,7 +110,6 @@ async def process_voice_pipeline(audio_file: bytes):
         return {"error": f"Failed to synthesize speech: {str(e)}"}
         
     finally:
-        # Cleanup
         if os.path.exists(temp_filename):
             try:
                 os.remove(temp_filename)

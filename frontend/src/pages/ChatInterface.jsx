@@ -32,7 +32,7 @@ const ChatInterface = () => {
     }
   };
 
-  // --- 2. STOP & SEND ---
+  // --- 2. STOP & SEND (UPDATED WITH AGENT ID) ---
   const stopRecording = () => {
     mediaRecorderRef.current.stop();
     setIsRecording(false);
@@ -41,20 +41,19 @@ const ChatInterface = () => {
   const handleStopRecording = async () => {
     setIsLoading(true);
     const audioBlob = new Blob(audioChunksRef.current, { type: "audio/mp3" });
+    
     const formData = new FormData();
     formData.append("file", audioBlob, "voice_input.mp3");
+    formData.append("agent_id", agentId); // <--- Sending the ID so backend knows who to impersonate
 
     // Add a temp "Thinking..." message
     setMessages((prev) => [...prev, { role: "user", type: "audio", status: "sent" }]);
 
     try {
       // Send to Backend
-      // Note: We are using the main chat endpoint. 
-      // In a real app, you'd pass the 'agentId' to the backend to load specific prompts.
-      // For now, we will use the default backend pipeline we built.
       const response = await axios.post("http://localhost:8000/chat/audio", formData, {
         headers: { "Content-Type": "multipart/form-data" },
-        responseType: "blob", // Important for receiving audio
+        responseType: "blob", 
       });
 
       // Create URL for the AI's audio response

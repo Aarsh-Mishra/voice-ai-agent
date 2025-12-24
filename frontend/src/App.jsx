@@ -9,10 +9,8 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        
         {/* New Route for Chatting */}
         <Route path="/chat/:agentId" element={<ChatInterface />} />
-        
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

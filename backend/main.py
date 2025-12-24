@@ -1,11 +1,11 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from database import test_db_connection
 from agents import router as agents_router
 from auth import router as auth_router
-from services import process_voice_pipeline # Import the new service
+from services import process_voice_pipeline
 
 load_dotenv()
 
@@ -34,22 +34,19 @@ async def root():
 
 # --- VOICE ENDPOINT ---
 @app.post("/chat/audio")
-async def chat_audio(file: UploadFile = File(...)):
-    """
-    Receives an audio file (MP3/WAV), processes it (STT -> LLM -> TTS),
-    and returns the audio binary + headers with the transcript.
-    """
+async def chat_audio(
+    file: UploadFile = File(...),
+    agent_id: str = Form(...)  # <--- NEW: Accepts agent_id
+):
     try:
-        # Read file bytes
         audio_bytes = await file.read()
         
-        # Run Pipeline
-        result = await process_voice_pipeline(audio_bytes)
+        # Pass agent_id to the pipeline
+        result = await process_voice_pipeline(audio_bytes, agent_id)
         
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
 
-        # Return Audio File with transcripts in headers
         return Response(
             content=result["audio_data"],
             media_type="audio/mpeg",
