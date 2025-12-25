@@ -2,6 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from urllib.parse import quote
 from database import test_db_connection
 from agents import router as agents_router
 from auth import router as auth_router
@@ -51,8 +52,8 @@ async def chat_audio(
             content=result["audio_data"],
             media_type="audio/mpeg",
             headers={
-                "X-User-Text": result["user_text"],
-                "X-AI-Text": result["ai_text"]
+                "X-User-Text": quote(result["user_text"]),
+                "X-AI-Text": quote(result["ai_text"])
             }
         )
         
