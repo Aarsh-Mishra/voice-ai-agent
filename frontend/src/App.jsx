@@ -1,15 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import ChatInterface from "./pages/ChatInterface"; // <--- Import this
+import ChatInterface from "./pages/ChatInterface";
+import Signup from "./pages/Signup";
 
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        {/* New Route for Chatting */}
         <Route path="/chat/:agentId" element={<ChatInterface />} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
