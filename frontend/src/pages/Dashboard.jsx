@@ -14,13 +14,25 @@ const Dashboard = () => {
   
   // Form State
   const [newAgent, setNewAgent] = useState({
-    name: "",
-    system_prompt: "",
-    voice_model: "aura-asteria-en",
-    stt_provider: "deepgram",
-    llm_provider: "groq",
-    tts_provider: "deepgram"
+      name: "",
+      system_prompt: "",
+      voice_model: "aura-asteria-en",
+      stt_provider: "deepgram",
+      llm_provider: "groq",
+      tts_provider: "deepgram",
+      gender: "female" // <--- Add this to track UI selection
   });
+
+  // 2. Helper to update voice model automatically when Provider or Gender changes
+  useEffect(() => {
+      let model = "";
+      if (newAgent.tts_provider === "deepgram") {
+          model = newAgent.gender === "male" ? "aura-orion-en" : "aura-asteria-en";
+      } else if (newAgent.tts_provider === "edge") {
+          model = newAgent.gender === "male" ? "en-US-GuyNeural" : "en-US-AriaNeural";
+      }
+      setNewAgent(prev => ({ ...prev, voice_model: model }));
+  }, [newAgent.tts_provider, newAgent.gender]);
   
   const navigate = useNavigate();
 
@@ -127,47 +139,164 @@ const Dashboard = () => {
     </motion.div>
   );
 
-  const SettingsView = () => (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-2xl bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 className="text-2xl font-bold text-gray-900 mb-8 flex items-center gap-2">
-            <Settings className="text-gray-600" size={28} /> Account Settings
-        </h3>
+ const SettingsView = () => {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [confirmPassword, setConfirmPassword] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [updating, setUpdating] = useState(false);
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
+    
+    // Fetch user details on load
+    useEffect(() => {
+        const fetchUserDetails = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                if (!token) {
+                    setError("No authentication token found");
+                    setLoading(false);
+                    return;
+                }
+                
+                const response = await axios.get("http://localhost:8000/auth/me", {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                setEmail(response.data.email);
+                setLoading(false);
+            } catch (err) {
+                setError("Failed to load user details");
+                setLoading(false);
+                if (err.response?.status === 401) {
+                    handleLogout();
+                }
+            }
+        };
         
-        <div className="space-y-6">
-            <div className="flex items-center justify-between p-6 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center shadow-sm">
-                        <User size={24} />
-                    </div>
-                    <div>
-                        <p className="font-bold text-gray-900 text-lg">Admin User</p>
-                        <p className="text-sm text-gray-500 mt-0.5">admin@voiceai.com</p>
-                    </div>
-                </div>
-                <button className="text-blue-600 text-sm font-semibold hover:text-blue-700 transition">Edit</button>
-            </div>
+        fetchUserDetails();
+    }, []);
 
-            <div className="flex items-center justify-between p-6 bg-slate-50 rounded-xl border border-slate-200">
-                <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm">
-                        <Shield size={24} />
-                    </div>
-                    <div>
-                        <p className="font-bold text-gray-900 text-lg">API Keys</p>
-                        <p className="text-sm text-gray-500 mt-0.5">Managed in .env file</p>
-                    </div>
-                </div>
-                <div className="px-4 py-2 bg-green-100 text-green-700 text-xs font-bold rounded-lg">Active</div>
-            </div>
+    const handleUpdate = async (e) => {
+        e.preventDefault();
+        setError("");
+        setSuccess("");
+        
+        // Validate password fields
+        if (password && password !== confirmPassword) {
+            setError("Passwords do not match");
+            return;
+        }
+        
+        if (email.trim() === "") {
+            setError("Email cannot be empty");
+            return;
+        }
+        
+        setUpdating(true);
+        try {
+            const token = localStorage.getItem("token");
+            const updateData = { email };
+            
+            // Only include password if it was provided
+            if (password) {
+                updateData.password = password;
+            }
+            
+            await axios.put("http://localhost:8000/auth/me", 
+                updateData,
+                { headers: { Authorization: `Bearer ${token}` }}
+            );
+            
+            setSuccess("Profile updated successfully!");
+            setPassword("");
+            setConfirmPassword("");
+            
+            // Clear success message after 3 seconds
+            setTimeout(() => setSuccess(""), 3000);
+        } catch (error) {
+            setError("Update failed: " + (error.response?.data?.detail || error.message));
+        } finally {
+            setUpdating(false);
+        }
+    };
 
-            <div className="pt-6 border-t border-slate-200">
-                <button onClick={handleLogout} className="w-full py-3 rounded-xl border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition flex items-center justify-center gap-2">
-                    <LogOut size={20} /> Sign Out
+    if (loading) {
+        return (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-center h-64">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <p className="text-gray-600 mt-4">Loading your account details...</p>
+                </div>
+            </motion.div>
+        );
+    }
+
+    return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-xl bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">Account Settings</h3>
+            
+            {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                    {error}
+                </div>
+            )}
+            
+            {success && (
+                <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+                    {success}
+                </div>
+            )}
+            
+            <form onSubmit={handleUpdate} className="space-y-4">
+                <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                    <input 
+                        type="email" 
+                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        value={email} 
+                        onChange={e => setEmail(e.target.value)} 
+                        placeholder="your@email.com"
+                        disabled={updating}
+                    />
+                </div>
+                
+                <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">New Password</label>
+                    <input 
+                        type="password" 
+                        className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        value={password} 
+                        onChange={e => setPassword(e.target.value)} 
+                        placeholder="Leave blank to keep current password"
+                        disabled={updating}
+                    />
+                </div>
+                
+                {password && (
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+                        <input 
+                            type="password" 
+                            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                            value={confirmPassword} 
+                            onChange={e => setConfirmPassword(e.target.value)} 
+                            placeholder="Confirm your new password"
+                            disabled={updating}
+                        />
+                    </div>
+                )}
+                
+                <button 
+                    type="submit" 
+                    disabled={updating}
+                    className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                    {updating ? "Saving..." : "Save Changes"}
                 </button>
-            </div>
-        </div>
-    </motion.div>
-  );
+            </form>
+        </motion.div>
+    );
+  };
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 text-gray-900 font-sans">
@@ -274,31 +403,34 @@ const Dashboard = () => {
                     onChange={e => setNewAgent({...newAgent, system_prompt: e.target.value})}
                   />
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
-                  <SelectGroup label="STT Provider" value={newAgent.stt_provider} 
-                    onChange={e => setNewAgent({...newAgent, stt_provider: e.target.value})}>
-                    <option value="deepgram">Deepgram (Fast)</option>
-                    <option value="openai">OpenAI Whisper</option>
-                  </SelectGroup>
-                  <SelectGroup label="LLM Provider" value={newAgent.llm_provider} 
-                    onChange={e => setNewAgent({...newAgent, llm_provider: e.target.value})}>
-                    <option value="groq">Groq (Llama 3)</option>
-                    <option value="openai">OpenAI (GPT-4)</option>
-                  </SelectGroup>
+                    <SelectGroup label="STT Provider" value={newAgent.stt_provider} 
+                        onChange={e => setNewAgent({...newAgent, stt_provider: e.target.value})}>
+                        <option value="deepgram">Deepgram (Fast)</option>
+                        {/* We keep STT server-side for reliability for now */}
+                    </SelectGroup>
+                    
+                    <SelectGroup label="LLM Brain" value={newAgent.llm_provider} 
+                        onChange={e => setNewAgent({...newAgent, llm_provider: e.target.value})}>
+                        <option value="groq">Groq (Llama 3)</option>
+                        <option value="gemini">Google Gemini</option> {/* NEW OPTION */}
+                    </SelectGroup>
                 </div>
 
+                {/* TTS and Voice Row */}
                 <div className="grid grid-cols-2 gap-4">
-                  <SelectGroup label="TTS Provider" value={newAgent.tts_provider} 
-                    onChange={e => setNewAgent({...newAgent, tts_provider: e.target.value})}>
-                    <option value="deepgram">Deepgram Aura</option>
-                    <option value="elevenlabs">ElevenLabs</option>
-                  </SelectGroup>
-                  <SelectGroup label="Voice Model" value={newAgent.voice_model} 
-                    onChange={e => setNewAgent({...newAgent, voice_model: e.target.value})}>
-                    <option value="aura-asteria-en">Asteria (Female)</option>
-                    <option value="aura-orion-en">Orion (Male)</option>
-                  </SelectGroup>
+                    <SelectGroup label="TTS Provider" value={newAgent.tts_provider} 
+                        onChange={e => setNewAgent({...newAgent, tts_provider: e.target.value})}>
+                        <option value="deepgram">Deepgram Aura</option>
+                        <option value="edge">Edge TTS (Free)</option>
+                    </SelectGroup>
+                    
+                    {/* Gender Selection instead of raw model names */}
+                    <SelectGroup label="Voice Gender" value={newAgent.gender} 
+                        onChange={e => setNewAgent({...newAgent, gender: e.target.value})}>
+                        <option value="female">Female</option>
+                        <option value="male">Male</option>
+                    </SelectGroup>
                 </div>
 
                 <div className="pt-4 flex gap-3">
