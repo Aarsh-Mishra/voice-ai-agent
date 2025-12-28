@@ -51,3 +51,5 @@ uvicorn==0.38.0
 verboselogs==1.7
 websockets==15.0.1
 yarl==1.22.0
+google-generativeai
+edge-tts
