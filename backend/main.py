@@ -3,6 +3,9 @@ from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from urllib.parse import quote
+import json
+
+# Import your existing MongoDB connection
 from database import test_db_connection
 from agents import router as agents_router
 from auth import router as auth_router
@@ -33,17 +36,18 @@ async def startup_db_client():
 async def root():
     return {"message": "Voice AI Backend is running!"}
 
-# --- VOICE ENDPOINT ---
+# --- VOICE ENDPOINT (UPDATED) ---
 @app.post("/chat/audio")
 async def chat_audio(
     file: UploadFile = File(...),
-    agent_id: str = Form(...)  # <--- NEW: Accepts agent_id
+    agent_id: str = Form(...),
+    chat_history: str = Form(None) # <--- IMPORTANT: Accept this field
 ):
     try:
         audio_bytes = await file.read()
         
-        # Pass agent_id to the pipeline
-        result = await process_voice_pipeline(audio_bytes, agent_id)
+        # Pass history to service
+        result = await process_voice_pipeline(audio_bytes, agent_id, chat_history)
         
         if "error" in result:
             raise HTTPException(status_code=500, detail=result["error"])
