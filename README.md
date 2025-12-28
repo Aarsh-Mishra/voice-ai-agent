@@ -3,7 +3,6 @@
 A professional, real-time Voice AI Agent capable of holding natural conversations with context awareness. Built with a modern React frontend and a robust FastAPI backend, it leverages cutting-edge AI models for Speech-to-Text (STT), Large Language Models (LLM), and Text-to-Speech (TTS).
 
 ![Project Status](https://img.shields.io/badge/Status-Active-success)
-![License](https://img.shields.io/badge/License-MIT-blue)
 
 ## 🌟 Features
 
@@ -133,7 +132,3 @@ voice-ai-agent/
 ## 🤝 Contributing
 
 Contributions are welcome! Please fork the repository and submit a pull request.
-
-## 📄 License
-
-This project is licensed under the MIT License.
